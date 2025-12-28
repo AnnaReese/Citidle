@@ -8,6 +8,9 @@ venv/
 # Env file (secrets) — may contain keys/passwords
 .env/
 
+# Streamlit cache - machine-specific, auto-generated files
+.streamlit/
+
 # macOS Finder file — OS metadata
 .DS_Store
 # Windows thumbnail cache — OS cache file
