@@ -167,6 +167,35 @@ _punct_re = re.compile(r"[^\w\s]")
 _multi_space_re = re.compile(r"\s+")
 
 
+# Pre-canonicalize aliases to the same normalized key-space the index uses.
+# This avoids order-dependent punctuation/formatting issues where alias targets
+# contain punctuation (e.g. "st. louis") that would need re-normalization at
+# lookup time. We build a small map: normalized_alias -> normalized_target.
+def _normalize_key_for_mapping(s: str) -> str:
+	"""Lightweight normalization used for canonicalizing alias keys/targets.
+
+	This mirrors the steps used by normalize_name but avoids expanding aliases
+	(to prevent recursion during module import).
+	"""
+	if not s:
+		return ""
+	s = s.strip().lower()
+	s = s.replace("&", " and ")
+	s = _punct_re.sub(" ", s)
+	# remove the word 'city' consistently for mapping keys
+	s = re.sub(r"\bcity\b", "", s)
+	s = _multi_space_re.sub(" ", s).strip()
+	return s
+
+
+CANONICAL_ALIASES: Dict[str, str] = {}
+for a, t in ALIASES.items():
+	a_key = _normalize_key_for_mapping(a)
+	t_key = _normalize_key_for_mapping(t)
+	if a_key and t_key:
+		CANONICAL_ALIASES[a_key] = t_key
+
+
 @dataclass
 class CityRecord:
 	name: str
@@ -182,22 +211,24 @@ def normalize_name(name: str) -> str:
 	Steps:
 	- lowercase and strip
 	- remove punctuation
-	- expand simple aliases
-	- remove trailing word 'city'
 	- collapse whitespace
+	- expand simple aliases (using pre-canonicalized alias map)
+	- remove trailing word 'city' (handled earlier) and collapse again
 	"""
 	if not name:
 		return ""
 	s = name.strip().lower()
 	s = s.replace("&", " and ")
-	s = _punct_re.sub(" ", s) # replaces punctuation characters in the string s with spaces
-	if s in ALIASES:
-		s = ALIASES[s] # expand alias
-		# If the alias value contains punctuation (e.g. "st. louis"), remove it
-		# so the final normalized key matches the index (which had punctuation removed).
-		s = _punct_re.sub(" ", s)
-	s = re.sub(r"\bcity\b", "", s) # removes the word "city" from the string s, but only when it appears as a whole word
-	s = _multi_space_re.sub(" ", s).strip() # collapses extra whitespace into single spaces and trims the ends of the string
+	s = _punct_re.sub(" ", s)
+	s = _multi_space_re.sub(" ", s).strip()
+
+	# expand aliases using the canonicalized map (exact match)
+	if s in CANONICAL_ALIASES:
+		s = CANONICAL_ALIASES[s]
+
+	# remove the word 'city' and collapse whitespace again to be safe
+	s = re.sub(r"\bcity\b", "", s)
+	s = _multi_space_re.sub(" ", s).strip()
 	return s
 
 
