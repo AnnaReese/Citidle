@@ -20,11 +20,7 @@ I hope you enjoy playing!
 ## How to Play
 
 1. **Guess a US city** with a population of 300,000 or more
-2. **See your guess on the map** — the color indicates how close you are:
-   - 🟢 **Green** — Very close (under 100 miles)
-   - 🟡 **Yellow** — Getting warmer (100-500 miles)
-   - 🟠 **Orange** — Getting there (500-1000 miles)
-   - 🔴 **Red** — Far away (1000+ miles)
+2. **See your guess on the map** — the color indicates how close you are
 3. **Keep guessing** until you find the target city
 4. **New city every day** — resets at midnight CST
 
@@ -32,7 +28,7 @@ I hope you enjoy playing!
 
 - Interactive US map with Leaflet.js
 - Visual feedback showing all your guesses
-- Distance and direction hints for each guess
+- Distance hint for each guess
 - Progress saved locally — come back anytime
 - New puzzle daily at midnight Central Time
 
