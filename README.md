@@ -1,6 +1,8 @@
 # Citidle 
 
 A daily geography guessing game where you try to identify a mystery US city. Inspired by [Globle](https://globle-game.com/) and [Wordle](https://www.nytimes.com/games/wordle).
+<br>
+Link to play: [Citidle](https://web-production-29a41.up.railway.app/)
 
 ## A Note From the Author:
 I made this game because I absolutely love Globle and play it everyday.
