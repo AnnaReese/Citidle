@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citidle - Daily US City Guessing Game</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Citidle is a free daily geography guessing game. Guess the mystery US city each day! Similar to Wordle but for US cities with 300k+ population.">
+    <meta name="keywords" content="citidle, city guessing game, geography game, wordle, daily game, US cities, map game">
+    <meta name="author" content="Citidle">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Citidle - Daily US City Guessing Game">
+    <meta property="og:description" content="Guess the mystery US city each day! A free daily geography game similar to Wordle.">
+    <meta property="og:site_name" content="Citidle">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Citidle - Daily US City Guessing Game">
+    <meta name="twitter:description" content="Guess the mystery US city each day! A free daily geography game similar to Wordle.">
+    
+    <!-- Favicon (you can add a favicon.ico later) -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+        }
+        
+        h1 span {
+            color: #64ffda;
+        }
+        
+        .subtitle {
+            color: #8892b0;
+            font-size: 1rem;
+        }
+        
+        .description {
+            color: #a8b2d1;
+            font-size: 0.9rem;
+            max-width: 600px;
+            margin: 12px auto;
+            line-height: 1.5;
+        }
+        
+        .timer {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .game-area {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .game-area {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .guess-section {
+            grid-column: 1 / -1;
+        }
+        
+        .guess-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .guess-input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        .guess-input:focus {
+            outline: none;
+            border-color: #64ffda;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #64ffda;
+            color: #0a192f;
+        }
+        
+        .btn-primary:hover {
+            background: #4dd0c1;
+        }
+        
+        #map {
+            height: 350px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .guesses-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .guess-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        
+        .guess-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        
+        .guess-info {
+            flex: 1;
+        }
+        
+        .guess-city {
+            font-weight: 500;
+        }
+        
+        .guess-distance {
+            font-size: 0.85rem;
+            color: #8892b0;
+        }
+        
+        /* Color tiers - blue shades with dark blue for very_cold */
+        .tier-correct { background: #00ff00; color: #000; }
+        .tier-very_hot { background: #ff0000; color: #fff; }
+        .tier-hot { background: #ff4500; color: #fff; }
+        .tier-warm { background: #ffa500; color: #000; }
+        .tier-cool { background: #87ceeb; color: #000; }
+        .tier-cold { background: #4a90d9; color: #fff; }
+        .tier-very_cold { background: #1a365d; color: #fff; }
+        
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .message-error {
+            background: rgba(255,0,0,0.2);
+            border: 1px solid #ff6b6b;
+        }
+        
+        .message-success {
+            background: rgba(0,255,0,0.2);
+            border: 1px solid #00ff00;
+        }
+        
+        .win-banner {
+            background: linear-gradient(135deg, #0a4d40 0%, #0d6d58 100%);
+            border: 2px solid #64ffda;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .win-banner h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #8892b0;
+        }
+        
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>CITIDLE</span></h1>
+            <p class="subtitle">Guess the mystery US city!</p>
+            <p class="description">A new US city with a population 300k+ is chosen each day. Type any major US city and see how close you are. The map will show your guesses color-coded by distance. Warmer colors mean you're getting closer. Keep guessing until you find the target city!</p>
+            <div class="timer">
+                Next city in: <span id="countdown">--:--:--</span>
+            </div>
+        </header>
+        
+        <div id="win-banner" class="win-banner hidden">
+            <h2>You found it!</h2>
+            <p id="win-city"></p>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="guess-count">0</div>
+                    <div class="stat-label">Guesses</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <div class="panel guess-section">
+                <div id="message" class="message hidden"></div>
+                
+                <form id="guess-form" class="guess-form">
+                    <input 
+                        type="text" 
+                        id="guess-input" 
+                        class="guess-input" 
+                        placeholder="Enter a US city name..."
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn btn-primary" id="guess-btn">Guess</button>
+                </form>
+                
+                <div class="legend">
+                    <div class="legend-item"><span class="legend-color tier-correct"></span> Correct</div>
+                    <div class="legend-item"><span class="legend-color tier-very_hot"></span> &lt;50mi</div>
+                    <div class="legend-item"><span class="legend-color tier-hot"></span> &lt;150mi</div>
+                    <div class="legend-item"><span class="legend-color tier-warm"></span> &lt;300mi</div>
+                    <div class="legend-item"><span class="legend-color tier-cool"></span> &lt;600mi</div>
+                    <div class="legend-item"><span class="legend-color tier-cold"></span> &lt;1000mi</div>
+                    <div class="legend-item"><span class="legend-color tier-very_cold"></span> &gt;1000mi</div>
+                </div>
+            </div>
+            
+            <div class="panel" style="grid-column: 1 / -1;">
+                <h3 style="margin-bottom: 15px;">Map</h3>
+                <div id="map"></div>
+            </div>
+            
+            <div class="panel">
+                <h3 style="margin-bottom: 15px;">Your Guesses</h3>
+                <div id="guesses-list" class="guesses-list">
+                    <p style="color: #8892b0; text-align: center;">No guesses yet. Start guessing!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // ==================== CONFIG ====================
+        const API_BASE = '';  // Same origin
+        
+        // Color palette for tiers - blue shades with dark blue for very_cold
+        const TIER_COLORS = {
+            correct: '#00ff00',
+            very_hot: '#ff0000',
+            hot: '#ff4500',
+            warm: '#ffa500',
+            cool: '#87ceeb',
+            cold: '#4a90d9',
+            very_cold: '#1a365d'
+        };
+        
+        // ==================== STATE ====================
+        let gameState = {
+            guesses: [],
+            isWon: false,
+            targetRevealed: null,
+            cstDate: null
+        };
+        
+        let map = null;
+        let markers = [];
+        
+        // ==================== LOCAL STORAGE ====================
+        function getStorageKey() {
+            return `citidle_${gameState.cstDate}`;
+        }
+        
+        function saveGameState() {
+            if (!gameState.cstDate) return;
+            localStorage.setItem(getStorageKey(), JSON.stringify(gameState));
+        }
+        
+        function loadGameState(cstDate) {
+            gameState.cstDate = cstDate;
+            const saved = localStorage.getItem(getStorageKey());
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                gameState.guesses = parsed.guesses || [];
+                gameState.isWon = parsed.isWon || false;
+                gameState.targetRevealed = parsed.targetRevealed || null;
+                return true;
+            }
+            return false;
+        }
+        
+        function clearOldGameStates() {
+            // Remove game states older than 7 days
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+                if (key.startsWith('citidle_') && key !== getStorageKey()) {
+                    localStorage.removeItem(key);
+                }
+            });
+        }
+        
+        // ==================== MAP ====================
+        function initMap() {
+            // Center on continental US
+            map = L.map('map').setView([39.8283, -98.5795], 4);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        function addMarkerToMap(city, tier, guessNum) {
+            const color = TIER_COLORS[tier] || TIER_COLORS.very_cold;
+            
+            const marker = L.circleMarker([city.lat, city.lng], {
+                radius: 10,
+                fillColor: color,
+                color: '#000',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`
+                <b>#${guessNum}: ${city.name}, ${city.state}</b><br>
+                ${tier === 'correct' ? 'Correct!' : `Distance: ${city.distance || '?'} miles`}
+            `);
+            
+            markers.push(marker);
+        }
+        
+        function clearMarkers() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+        
+        function renderAllMarkers() {
+            clearMarkers();
+            gameState.guesses.forEach((g, i) => {
+                const cityWithDist = { ...g.city, distance: g.distance_miles };
+                addMarkerToMap(cityWithDist, g.color_tier, i + 1);
+            });
+            
+            // Show target if revealed
+            if (gameState.targetRevealed) {
+                addMarkerToMap(gameState.targetRevealed, 'correct', 'Target');
+            }
+            
+            // Do not auto-zoom - keep map at default US view
+        }
+        
+        // ==================== UI ====================
+        function showMessage(text, type = 'error') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message message-${type}`;
+            msg.classList.remove('hidden');
+            
+            setTimeout(() => {
+                msg.classList.add('hidden');
+            }, 3000);
+        }
+        
+        function renderGuessesList() {
+            const list = document.getElementById('guesses-list');
+            
+            if (gameState.guesses.length === 0) {
+                list.innerHTML = '<p style="color: #8892b0; text-align: center;">No guesses yet. Start guessing!</p>';
+                return;
+            }
+            
+            list.innerHTML = gameState.guesses.map((g, i) => `
+                <div class="guess-item">
+                    <div class="guess-num tier-${g.color_tier}">${i + 1}</div>
+                    <div class="guess-info">
+                        <div class="guess-city">${g.city.name}, ${g.city.state}</div>
+                        <div class="guess-distance">
+                            ${g.is_correct ? 'Correct!' : `${g.distance_miles.toFixed(0)} miles away`}
+                        </div>
+                    </div>
+                </div>
+            `).reverse().join('');
+        }
+        
+        function showWinBanner(target) {
+            document.getElementById('win-banner').classList.remove('hidden');
+            document.getElementById('win-city').textContent = `${target.name}, ${target.state}`;
+            document.getElementById('guess-count').textContent = gameState.guesses.length;
+            document.getElementById('guess-form').classList.add('hidden');
+        }
+        
+        // ==================== COUNTDOWN ====================
+        let countdownInterval;
+        
+        function updateCountdown() {
+            fetch(`${API_BASE}/api/game/info`)
+                .then(r => r.json())
+                .then(data => {
+                    const { hours, minutes, seconds } = data.time_until_reset;
+                    document.getElementById('countdown').textContent = 
+                        `${hours}h ${minutes}m ${seconds}s`;
+                    
+                    // Check if date changed (new game!)
+                    if (gameState.cstDate && data.cst_date !== gameState.cstDate) {
+                        location.reload();
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('countdown').textContent = '--:--:--';
+                });
+        }
+        
+        // ==================== GAME LOGIC ====================
+        async function submitGuess(guessText) {
+            if (gameState.isWon) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/guess`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ guess: guessText })
+                });
+                
+                const data = await res.json();
+                
+                if (!data.success) {
+                    showMessage(data.error || 'Unknown error', 'error');
+                    return;
+                }
+                
+                const result = data.result;
+                
+                // Check if already guessed this city
+                const alreadyGuessed = gameState.guesses.some(g => 
+                    g.city.name === result.city.name && g.city.state === result.city.state
+                );
+                
+                if (alreadyGuessed) {
+                    showMessage('You already guessed that city!', 'error');
+                    return;
+                }
+                
+                // Add to guesses
+                gameState.guesses.push(result);
+                
+                if (result.is_correct) {
+                    gameState.isWon = true;
+                    showWinBanner(result.target);
+                }
+                
+                saveGameState();
+                renderGuessesList();
+                renderAllMarkers();
+                
+            } catch (e) {
+                showMessage('Failed to submit guess. Please try again.', 'error');
+                console.error(e);
+            }
+        }
+        
+        // ==================== INIT ====================
+        async function init() {
+            initMap();
+            
+            // Load game info and restore state
+            try {
+                const res = await fetch(`${API_BASE}/api/game/info`);
+                const info = await res.json();
+                
+                loadGameState(info.cst_date);
+                clearOldGameStates();
+                
+                // Restore UI state
+                renderGuessesList();
+                renderAllMarkers();
+                
+                if (gameState.isWon && gameState.guesses.length > 0) {
+                    const lastGuess = gameState.guesses[gameState.guesses.length - 1];
+                    if (lastGuess.is_correct) {
+                        showWinBanner(lastGuess.city);
+                    }
+                }
+                
+            } catch (e) {
+                console.error('Failed to load game info:', e);
+            }
+            
+            // Start countdown
+            updateCountdown();
+            countdownInterval = setInterval(updateCountdown, 1000);
+            
+            // Form submit handler
+            document.getElementById('guess-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('guess-input');
+                const guess = input.value.trim();
+                if (guess) {
+                    submitGuess(guess);
+                    input.value = '';
+                }
+            });
+        }
+        
+        // Start the app
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
